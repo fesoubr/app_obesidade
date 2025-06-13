@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# --- CONFIGURAÇÃO DA PÁGINA  ---
+# --- CONFIGURAÇÃO DA PÁGINA (em português) ---
 st.set_page_config(page_title="Previsão de Obesidade", layout="wide")
 
 # --- CARREGAMENTO DOS ARQUIVOS DO MODELO ---
