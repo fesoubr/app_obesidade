@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# --- CONFIGURAÇÃO DA PÁGINA (em português) ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Previsão de Obesidade", layout="wide")
 
 # --- CARREGAMENTO DOS ARQUIVOS DO MODELO ---
@@ -19,18 +19,26 @@ def load_model_assets():
 model, scaler, label_encoder, model_columns = load_model_assets()
 
 
-# --- INTERFACE DO USUÁRIO (traduzida) ---
+# --- INTERFACE DO USUÁRIO (com ajustes nos sliders) ---
 st.title('Sistema Preditivo para Níveis de Obesidade')
 st.write('Esta aplicação utiliza um modelo de Machine Learning (LightGBM) para prever o nível de obesidade de um indivíduo com base em seus hábitos e características físicas.')
 
 col1, col2, col3 = st.columns(3)
 
-# Opções em português para os seletores
+# --- Listas de opções para os seletores e sliders ---
 opcoes_sim_nao = ['Sim', 'Não']
 opcoes_genero = ['Masculino', 'Feminino']
 opcoes_caec = ['Não', 'Às vezes', 'Frequentemente', 'Sempre']
 opcoes_calc = ['Não', 'Às vezes', 'Frequentemente']
 opcoes_mtrans = ['Transporte Público', 'Automóvel', 'Andando', 'Motocicleta', 'Bicicleta']
+
+# NOVAS OPÇÕES PARA OS SLIDERS DE TEXTO
+opcoes_fcvc = ['Nunca ou Raramente', 'Às vezes', 'Sempre']
+opcoes_ncp = ['1', '2', '3', '4'] # NCP é numérico, mas podemos usar select_slider
+opcoes_ch2o = ['Menos de 1 Litro', 'Entre 1 e 2 Litros', 'Mais de 2 Litros']
+opcoes_faf = ['Nenhuma', '1 ou 2 dias', '2 a 4 dias', '4 ou 5 dias']
+opcoes_tue = ['0 a 2 horas', '3 a 5 horas', 'Mais de 5 horas']
+
 
 with col1:
     st.header("Características Físicas")
@@ -43,17 +51,19 @@ with col2:
     st.header("Hábitos Alimentares")
     family_history = st.selectbox('Histórico Familiar de Sobrepeso?', opcoes_sim_nao)
     favc = st.selectbox('Consome alimentos de alta caloria frequentemente (FAVC)?', opcoes_sim_nao)
-    fcvc = st.slider('Frequência de consumo de vegetais (FCVC)', 1.0, 3.0, 2.0, step=0.5)
-    ncp = st.slider('Número de refeições principais (NCP)', 1.0, 4.0, 3.0, step=0.5)
+    # MUDANÇA: trocando st.slider por st.select_slider
+    fcvc = st.select_slider('Frequência de consumo de vegetais (FCVC)', options=opcoes_fcvc, value='Às vezes')
+    ncp = st.select_slider('Número de refeições principais (NCP)', options=opcoes_ncp, value='3')
     caec = st.selectbox('Consome algo entre as refeições (CAEC)?', opcoes_caec)
     scc = st.selectbox('Monitora o consumo de calorias (SCC)?', opcoes_sim_nao)
     
 with col3:
     st.header("Outros Hábitos")
-    smoke = st.selectbox('Fuma (SMOKE)?', opcoes_sim_nao)
-    ch2o = st.slider('Consumo diário de água (CH2O - litros)', 1.0, 3.0, 2.0, step=0.5)
-    faf = st.slider('Frequência de atividade física (FAF - dias/semana)', 0.0, 3.0, 1.0, step=0.5)
-    tue = st.slider('Tempo de uso de dispositivos (TUE - horas/dia)', 0.0, 2.0, 1.0, step=0.5)
+    smoke = st.selectbox('Fuma?', opcoes_sim_nao)
+    # MUDANÇA: trocando st.slider por st.select_slider
+    ch2o = st.select_slider('Consumo diário de água (CH2O)', options=opcoes_ch2o, value='Entre 1 e 2 Litros')
+    faf = st.select_slider('Frequência de atividade física (FAF)', options=opcoes_faf, value='1 ou 2 dias')
+    tue = st.select_slider('Tempo de uso de dispositivos (TUE)', options=opcoes_tue, value='0 a 2 horas')
     calc = st.selectbox('Consumo de álcool (CALC)?', opcoes_calc)
     mtrans = st.selectbox('Meio de transporte principal (MTRANS)', opcoes_mtrans)
 
@@ -61,7 +71,7 @@ with col3:
 if st.button('**Prever Nível de Obesidade**', use_container_width=True):
     
     # --- MAPEAMENTO E PREPARAÇÃO DOS DADOS DE ENTRADA ---
-    # 1. Dicionários para mapear as entradas em português para os valores originais em inglês
+    # 1. Dicionários de mapeamento para as entradas em texto
     map_sim_nao = {'Sim': 'yes', 'Não': 'no'}
     map_genero = {'Masculino': 'Male', 'Feminino': 'Female'}
     map_caec = {'Não': 'no', 'Às vezes': 'Sometimes', 'Frequentemente': 'Frequently', 'Sempre': 'Always'}
@@ -70,19 +80,29 @@ if st.button('**Prever Nível de Obesidade**', use_container_width=True):
         'Transporte Público': 'Public_Transportation', 'Automóvel': 'Automobile', 
         'Andando': 'Walking', 'Motocicleta': 'Motorbike', 'Bicicleta': 'Bike'
     }
+    # NOVOS MAPS para os sliders de texto
+    map_fcvc = {'Nunca ou Raramente': 1.0, 'Às vezes': 2.0, 'Sempre': 3.0}
+    map_ch2o = {'Menos de 1 Litro': 1.0, 'Entre 1 e 2 Litros': 2.0, 'Mais de 2 Litros': 3.0}
+    map_faf = {'Nenhuma': 0.0, '1 ou 2 dias': 1.0, '2 a 4 dias': 2.0, '4 ou 5 dias': 3.0}
+    map_tue = {'0 a 2 horas': 0.0, '3 a 5 horas': 1.0, 'Mais de 5 horas': 2.0}
 
-    # 2. Criar um DataFrame com os dados de entrada, já mapeando para o inglês
+    # 2. Criar um DataFrame com os dados de entrada, já mapeando para os valores numéricos/inglês
     input_data = {
         'Gender': map_genero[gender], 'Age': age, 'Height': height, 'Weight': weight,
-        'family_history': map_sim_nao[family_history], 'FAVC': map_sim_nao[favc], 'FCVC': fcvc,
-        'NCP': ncp, 'CAEC': map_caec[caec], 'SMOKE': map_sim_nao[smoke], 'CH2O': ch2o, 
-        'SCC': map_sim_nao[scc], 'FAF': faf, 'TUE': tue, 'CALC': map_calc[calc], 
+        'family_history': map_sim_nao[family_history], 'FAVC': map_sim_nao[favc], 
+        'FCVC': map_fcvc[fcvc], # Mapeando o texto para número
+        'NCP': float(ncp), # Convertendo o texto '3' para número 3.0
+        'CAEC': map_caec[caec], 'SMOKE': map_sim_nao[smoke], 
+        'CH2O': map_ch2o[ch2o], # Mapeando o texto para número
+        'SCC': map_sim_nao[scc], 
+        'FAF': map_faf[faf], # Mapeando o texto para número
+        'TUE': map_tue[tue], # Mapeando o texto para número
+        'CALC': map_calc[calc], 
         'MTRANS': map_mtrans[mtrans]
     }
     input_df = pd.DataFrame([input_data])
     
     # 3. Aplicar as mesmas transformações numéricas do treinamento
-    # (agora o código recebe os valores em inglês, como esperado)
     input_df['Gender'] = input_df['Gender'].map({'Male': 1, 'Female': 0})
     input_df['family_history'] = input_df['family_history'].map({'yes': 1, 'no': 0})
     input_df['FAVC'] = input_df['FAVC'].map({'yes': 1, 'no': 0})
@@ -109,7 +129,6 @@ if st.button('**Prever Nível de Obesidade**', use_container_width=True):
     prediction_numeric = model.predict(input_scaled)
     prediction_label_english = label_encoder.inverse_transform(prediction_numeric)
     
-    # Dicionário para traduzir o resultado final
     map_resultado = {
         'Normal_Weight': 'Peso Normal',
         'Overweight_Level_I': 'Sobrepeso Nível I',
@@ -120,7 +139,6 @@ if st.button('**Prever Nível de Obesidade**', use_container_width=True):
         'Insufficient_Weight': 'Peso Insuficiente'
     }
     
-    # Traduzir e exibir o resultado final
     resultado_final_pt = map_resultado.get(prediction_label_english[0], "Resultado não encontrado")
     
     st.success(f"**Resultado da Predição:** O nível de obesidade previsto é **{resultado_final_pt}**.")
